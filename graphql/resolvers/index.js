@@ -3,6 +3,7 @@ const hello = require("./hello");
 
 module.exports = {
   Query: {
+    ...usersResolver.Query,
     ...hello.Query
   },
 

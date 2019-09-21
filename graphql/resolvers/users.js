@@ -8,6 +8,7 @@ const {
   validateRegisterInput,
   validateLoginInput
 } = require("../../lib/validators");
+const checkAuth = require("../../lib/checkAuth");
 
 const generateToken = user => {
   return jwt.sign(
@@ -23,18 +24,26 @@ const generateToken = user => {
 };
 
 module.exports = {
+  Query: {
+    currentUser: async (_, __, context) => {
+      const user = checkAuth(context);
+
+      if (user) {
+        return user;
+      } else {
+        throw new Error("user not found");
+      }
+    }
+  },
   Mutation: {
-    login: async (_, { firstName, lastName, password }) => {
-      const { errors, valid } = validateLoginInput(
-        firstName,
-        lastName,
-        password
-      );
+    login: async (_, { email, password }) => {
+      const { errors, valid } = validateLoginInput(email, password);
+
       if (!valid) {
         throw new UserInputError("Errors", { errors });
       }
 
-      const user = await User.findOne({ firstName, lastName });
+      const user = await User.findOne({ email });
       if (!user) {
         errors.general = "User not found";
         throw new UserInputError("User not found", { errors });
@@ -57,27 +66,22 @@ module.exports = {
 
     register: async (
       _,
-      {
-        registerInput: { firstName, lastName, password, confirmPassword, email }
-      }
+      { registerInput: { email, password, confirmPassword } }
     ) => {
       const { valid, errors } = validateRegisterInput(
-        firstName,
-        lastName,
+        email,
         password,
-        confirmPassword,
-        email
+        confirmPassword
       );
       if (!valid) {
         throw new UserInputError("Errors", { errors });
       }
 
-      const user = await User.findOne({ firstName, lastName });
+      const user = await User.findOne({ email });
       if (user) {
-        throw new UserInputError("firstName, lastName is taken", {
+        throw new UserInputError("email is taken", {
           errors: {
-            firstName: "This firstName is taken",
-            lastName: "This firstName is taken"
+            email: "This email is taken"
           }
         });
       }
@@ -85,8 +89,6 @@ module.exports = {
       password = await bcrypt.hash(password, 12);
       const newUser = new User({
         email,
-        firstName,
-        lastName,
         password,
         createdAt: new Date().toISOString()
       });
